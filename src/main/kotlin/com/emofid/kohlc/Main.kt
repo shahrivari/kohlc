@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import io.javalin.Javalin
 import io.javalin.json.JavalinJackson
 import java.text.SimpleDateFormat
+import java.time.LocalDateTime
 
 fun main(args: Array<String>) {
 
@@ -17,9 +18,10 @@ fun main(args: Array<String>) {
             mapper.setDateFormat(SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
         })
     }.get("/hi") { ctx ->
-        ctx.json("Hello World!")
+        ctx.json("Hello World: ${LocalDateTime.now()}")
     }.exception(Exception::class.java) { e, ctx ->
         ctx.status(500)
         ctx.result(e.message ?: "Unknown error")
     }.start(8000)
+
 }
