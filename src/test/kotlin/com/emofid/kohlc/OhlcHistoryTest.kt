@@ -17,17 +17,23 @@ class OhlcHistoryTest {
         ohlc.addNewTrade(3.0, 1.0, 102)
         ohlc.addNewTrade(4.0, 1.0, 103)
         Assertions.assertThat(ohlc.getCandles()).containsExactly(
-            CandleStick(1.0, 4.0, 1.0, 4.0, 4.0, 0),
-            CandleStick(1.0, 4.0, 1.0, 4.0, 4.0, 60),
+            CandleStick(1.0, 4.0, 1.0, 4.0, 4.0, 0, 1, 4),
+            CandleStick(1.0, 4.0, 1.0, 4.0, 4.0, 60, 100, 103),
         )
     }
 
     @Test
-    fun `adding trade in past should fail`() {
+    fun `adding trade in past should be flawless`() {
         val ohlc = OhlcHistory("test")
         ohlc.addNewTrade(1.0, 1.0, 100)
-        Assertions.assertThatThrownBy { ohlc.addNewTrade(1.0, 1.0, 3) }.isInstanceOf(IllegalArgumentException::class.java)
-    }
+        ohlc.addNewTrade(3.0, 3.0, 300)
+        ohlc.addNewTrade(2.0, 2.0, 200)
+        Assertions.assertThat(ohlc.getCandles()).containsExactly(
+            CandleStick(1.0, 1.0, 1.0, 1.0, 1.0, 60, 100, 100),
+            CandleStick(2.0, 2.0, 2.0, 2.0, 2.0, 180, 200, 200),
+            CandleStick(3.0, 3.0, 3.0, 3.0, 3.0, 300, 300, 300),
+        )
 
+    }
 
 }

@@ -3,19 +3,21 @@ package com.emofid.kohlc
 import java.time.LocalDateTime
 
 data class CandleStick(
-    val open: Double,
+    var open: Double,
     var high: Double,
     var low: Double,
     var close: Double,
     var volume: Double,
     val timestamp: Int,
+    var openTimeStamp: Int,
+    var closeTimeStamp: Int,
     val index: Int? = null
 ) {
 
 
     override fun toString(): String {
         val ts: LocalDateTime = LocalDateTime.ofEpochSecond(timestamp.toLong(), 0, ZONE_OFFSET)
-        return "CandleStick(open=$open, high=$high, low=$low, close=$close, volume=$volume, timestamp=$timestamp, ts=$ts)"
+        return "CandleStick(open=$open, high=$high, low=$low, close=$close, volume=$volume, timestamp=$timestamp, ts=$ts, openTimeStamp=$openTimeStamp, closeTimeStamp=$closeTimeStamp, index=$index)"
     }
 
     override fun equals(other: Any?): Boolean {

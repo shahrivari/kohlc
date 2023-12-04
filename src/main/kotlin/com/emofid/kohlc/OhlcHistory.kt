@@ -16,6 +16,8 @@ class OhlcHistory(val name: String) : Iterable<CandleStick> {
     val highs = DoubleArrayList()
     val lows = DoubleArrayList()
     val timestamps = IntArrayList()
+    val openTs = IntArrayList()
+    val closeTs = IntArrayList()
     val volumes = DoubleArrayList()
     private var lastCandle: CandleStick? = null
 
@@ -30,18 +32,49 @@ class OhlcHistory(val name: String) : Iterable<CandleStick> {
 
     @Synchronized
     fun addNewTrade(price: Double, volume: Double, timestamp: Int) {
-        if (lastCandle == null) {
+        if (lastCandle == null) { // The first candle in the history
             addNewCandle(price, volume, timestamp)
-        } else {
-            require(timestamp >= lastCandle!!.timestamp) { "Timestamp is less than last candle timestamp" }
+        } else if (timestamp >= lastCandle!!.timestamp) { // trade is in the future
             val candle = requireNotNull(lastCandle)
-            if (timestamp - candle.timestamp >= MIN_CANDLE_SPAN) {
+            if (timestamp - candle.timestamp >= MIN_CANDLE_SPAN) { // trade is in the current last candle
                 addNewCandle(price, volume, timestamp)
-            } else {
-                candle.close = price
+            } else { // trade is in the future and the candle is not closed
+                if (timestamp > candle.closeTimeStamp) {
+                    candle.close = price
+                    candle.closeTimeStamp = timestamp
+                }
+                if (timestamp < candle.openTimeStamp) {
+                    candle.open = price
+                    candle.openTimeStamp = timestamp
+                }
                 candle.volume += volume
                 if (price > candle.high) candle.high = price
                 if (price < candle.low) candle.low = price
+            }
+        } else { // trade is in the past
+            var idx = timestamps.buffer.binarySearch(timestamp.roundToCandle(), 0, timestamps.elementsCount)
+            if (idx >= 0) { // trade is in the past and the candle is available
+                if (timestamp > closeTs[idx]) {
+                    closes[idx] = price
+                    closeTs[idx] = timestamp
+                }
+                if (timestamp < openTs[idx]) {
+                    opens[idx] = price
+                    openTs[idx] = timestamp
+                }
+                volumes[idx] += volume
+                if (price > highs[idx]) highs[idx] = price
+                if (price < lows[idx]) lows[idx] = price
+            } else { // a new candle should be added in the past
+                idx = -idx - 1
+                timestamps.insert(idx, timestamp.roundToCandle())
+                openTs.insert(idx, timestamp)
+                closeTs.insert(idx, timestamp)
+                opens.insert(idx, price)
+                closes.insert(idx, price)
+                highs.insert(idx, price)
+                lows.insert(idx, price)
+                volumes.insert(idx, volume)
             }
         }
     }
@@ -54,18 +87,25 @@ class OhlcHistory(val name: String) : Iterable<CandleStick> {
             lows.add(it.low)
             volumes.add(it.volume)
             timestamps.add(it.timestamp)
+            openTs.add(it.openTimeStamp)
+            closeTs.add(it.closeTimeStamp)
         }
-        lastCandle = CandleStick(open, open, open, open, volume, timestamp.roundToCandle())
+        lastCandle = CandleStick(open, open, open, open, volume, timestamp.roundToCandle(), timestamp, timestamp)
     }
 
     fun getFirstCandleBefore(timestamp: Int): CandleStick? {
         if (size() == 0) return null
-        var pos = timestamps.buffer.binarySearch(timestamp, 0, timestamps.elementsCount)
-        if (pos < 0) pos = -pos - 1
-        return CandleStick(opens[pos], highs[pos], lows[pos], closes[pos], volumes[pos], timestamps[pos], pos)
+        var idx = timestamps.buffer.binarySearch(timestamp, 0, timestamps.elementsCount)
+        if (idx < 0) idx = -idx - 1
+        return getCandleAt(idx)
     }
 
     fun getCandles() = toList()
+
+    fun getLastCandles(n:Int) = toList().takeLast(n)
+
+    fun getCandleAt(i: Int) =
+        CandleStick(opens[i], highs[i], lows[i], closes[i], volumes[i], timestamps[i], openTs[i], closeTs[i], i)
 
     override fun iterator(): Iterator<CandleStick> {
         return object : Iterator<CandleStick> {
@@ -76,18 +116,11 @@ class OhlcHistory(val name: String) : Iterable<CandleStick> {
                 val candle = if (i == opens.size())
                     lastCandle!!.copy()
                 else
-                    CandleStick(opens[i], highs[i], lows[i], closes[i], volumes[i], timestamps[i], i)
+                    getCandleAt(i)
                 i++
                 return candle
             }
         }
-    }
-}
-
-class OhlcTable {
-    val table = HashMap<String, OhlcHistory>()
-    fun addNewTrade(symbol: String, price: Double, volume: Double, timestamp: Int) {
-        table.getOrPut(symbol) { OhlcHistory(symbol) }.addNewTrade(price, volume, timestamp)
     }
 }
 
